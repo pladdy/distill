@@ -14,6 +14,7 @@ import (
 
 const (
 	defaultBucketName = "BGP"
+	maxBatches        = 1000
 )
 
 var bgpIndexesToKeep = []int{1, 5, 6}
@@ -37,7 +38,7 @@ func distillBGP(file string) {
 
 	processStart := time.Now()
 	recordsStored, asMap := storeBGP(csvReader, &store)
-	lumberjack.Info("Proessed %.f total records in %v", recordsStored, time.Since(processStart))
+	lumberjack.Info("Processed %.f total records in %v", recordsStored, time.Since(processStart))
 	fmt.Println(asMap["1"])
 }
 

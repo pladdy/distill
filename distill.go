@@ -11,7 +11,6 @@ import (
 
 const (
 	updateAfterProcessing = 100000
-	maxBatches            = 1000
 )
 
 // Given a file name, use the name to return a .db file name

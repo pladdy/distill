@@ -96,16 +96,14 @@ func (store *BoltDB) Give(key string, value string) {
 // Given a name, use it as the current Bucket
 func (store *BoltDB) SetBucket(bucketName string) {
 	store.Bucket = bucketName
-	lumberjack.Info("Modifying bucket " + store.Bucket)
+	rightNow := fmt.Sprintf("%v", time.Now())
+	lumberjack.Info("Setting 'Bucket Modification Time' to " + rightNow)
 
 	store.Db.Update(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists([]byte(store.Bucket))
 		if err != nil {
 			lumberjack.Fatal("Failed to create a bucket " + store.Bucket)
 		}
-
-		rightNow := fmt.Sprintf("%v", time.Now())
-		lumberjack.Info("Setting 'Bucket Modification Time' to " + rightNow)
 
 		err = bucket.Put([]byte("Bucket Modification Time"), []byte(rightNow))
 		return err
