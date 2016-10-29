@@ -7,6 +7,7 @@ import (
 	"github.com/pladdy/lumberjack"
 )
 
+// set up oriented stuff
 var (
 	testBoltDB BoltDB
 	testDBPath string = "./testBolt.db"
@@ -21,6 +22,7 @@ func teardown() {
 	testBoltDB.Destroy()
 }
 
+// tests
 func TestCreate(t *testing.T) {
 	setup()
 	defer teardown()

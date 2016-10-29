@@ -9,14 +9,11 @@ import (
 	"github.com/pladdy/lumberjack"
 )
 
-const (
-	updateAfterProcessing = 100000
-)
-
 // Given a file name, use the name to return a .db file name
-func dbNameFromFile(fileName string) string {
+func swapFileExtension(fileName string, extension string) string {
 	re := regexp.MustCompile("\\" + filepath.Ext(fileName) + "$")
-	return string(re.ReplaceAll([]byte(filepath.Base(fileName)), []byte(".db")))
+	return string(
+		re.ReplaceAll([]byte(filepath.Base(fileName)), []byte("."+extension)))
 }
 
 // Given a channel and a number of times to take from it, attempt to take from
