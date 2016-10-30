@@ -81,7 +81,7 @@ func distillBGP(sourceFile string, destinationFile string) {
 // Given a bgpdump file, convert it to csv
 func bgpDumpToCSV(sourceFile string) string {
 	csvDumpFile := filepath.Base(swapFileExtension(sourceFile, "csv"))
-	lumberjack.Info("Running `bgpdump` on file %v", sourceFile, " to ", csvDumpFile)
+	lumberjack.Info("Running `bgpdump` on file %v to %v", sourceFile, csvDumpFile)
 
 	dumpCmd := exec.Command(
 		"bgpdump",
@@ -186,7 +186,7 @@ func storeBGP(csvReader *csv.Reader, store *BoltDB) (float64, map[string]int) {
 			break
 		}
 		if err != nil {
-			lumberjack.Warn("Error in csv read; Err: %s, Record: %s", err, record)
+			lumberjack.Error("Error in csv read; Err: %s, Record: %s", err, record)
 			continue
 		}
 
