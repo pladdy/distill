@@ -1,11 +1,17 @@
+// BGP Converter to convert bgpdumps to json files
+// http://bgp.us/ for more info on BGP
 package main
 
 import (
+	"bytes"
 	"encoding/csv"
 	"encoding/json"
 	"io"
 	"math"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -18,15 +24,26 @@ import (
 // 0           1          2 3            4    5          6        7    8           9 10 11                12  13
 
 const (
-	defaultBucketName     = "BGP"
+	defaultBucketName = "BGP"
+	// tried increasing this to get more performance but it just slows down;
+	// also tried increasing this and increasing the max batches in boltdb but
+	// still slowed down overall
 	maxBatches            = 1000
 	updateAfterProcessing = 100000
-	prefixIndex           = 5
-	pathIndex             = 6
+	joinString            = "|"
+	// record indexes
+	timeIndex    = 1
+	fromIPIndex  = 3
+	fromASNIndex = 4
+	prefixIndex  = 5
+	pathIndex    = 6
 )
 
 type seenASPath struct {
 	ModificationTime     int
+	FromIP               string
+	FromASN              int
+	Prefix               string
 	AutonomousSystemPath []int
 }
 
@@ -38,13 +55,14 @@ type bgpRecord struct {
 
 // Given a file created with `bgpdump -t`, convert it to aa JSON format grouped
 // by the AS in the record being observed
-func distillBGP(file string) {
+func distillBGP(sourceFile string, destinationFile string) {
 	var store BoltDB
-	store.Create(swapFileExtension(file, "db"))
+	store.Create(swapFileExtension(destinationFile, "db"))
 	store.SetBucket(defaultBucketName)
 	defer store.Destroy()
 
-	fileHandle, err := os.Open(file)
+	csvDumpFile := bgpDumpToCSV(sourceFile)
+	fileHandle, err := os.Open(csvDumpFile)
 	if err != nil {
 		lumberjack.Fatal("Failed to open file to read")
 	}
@@ -57,11 +75,38 @@ func distillBGP(file string) {
 	records, asMap := storeBGP(csvReader, &store)
 	lumberjack.Info("Processed %.f total records in %v", records, time.Since(start))
 
-	dumpBGP(&store, asMap, swapFileExtension(file, "json"))
+	dumpBGPStore(&store, asMap, destinationFile)
+}
+
+// Given a bgpdump file, convert it to csv
+func bgpDumpToCSV(sourceFile string) string {
+	csvDumpFile := filepath.Base(swapFileExtension(sourceFile, "csv"))
+	lumberjack.Info("Running `bgpdump` on file %v", sourceFile, " to ", csvDumpFile)
+
+	dumpCmd := exec.Command(
+		"bgpdump",
+		"-t",
+		"change",
+		"-m",
+		"-O",
+		csvDumpFile,
+		sourceFile)
+
+	var out bytes.Buffer
+	dumpCmd.Stdout = &out
+	err := dumpCmd.Run()
+	if err != nil {
+		lumberjack.Fatal(
+			"Failed to bgpdump file %v: Err: %v, Out: %q",
+			sourceFile,
+			err,
+			out.String())
+	}
+	return csvDumpFile
 }
 
 // Dump the stored bgp data to a json file
-func dumpBGP(store *BoltDB, asMap map[string]int, fileName string) {
+func dumpBGPStore(store *BoltDB, asMap map[string]int, fileName string) {
 	lumberjack.Info("Dumping store to file %v", fileName)
 
 	file, err := os.Create(fileName)
@@ -70,8 +115,9 @@ func dumpBGP(store *BoltDB, asMap map[string]int, fileName string) {
 	}
 	defer file.Close()
 
-	file.Write([]byte("["))
-	file.Write([]byte("\n  "))
+	lastIndex := len(asMap) - 1
+	index := 0
+	file.Write([]byte("[\n"))
 
 	for asn := range asMap {
 		records := store.TakeString(asn)
@@ -80,10 +126,34 @@ func dumpBGP(store *BoltDB, asMap map[string]int, fileName string) {
 		if err != nil {
 			lumberjack.Error("Failed to marshal records %v:\n%v", records, err)
 		}
+		file.Write([]byte("  "))
 		file.Write(data)
-		file.Write([]byte("\n"))
+		if index != lastIndex {
+			file.Write([]byte(",\n"))
+		}
+		index += 1
 	}
-	file.Write([]byte("]"))
+	file.Write([]byte("\n]"))
+}
+
+// Given a record from a bgpdump, expand the as path if there's an as set
+// and return the record; this change is "in place"
+func expandASPath(asPath string) (expandedPath string) {
+	itMatched, err := regexp.MatchString("{", asPath)
+	if err != nil {
+		lumberjack.Error("regexp.Match failed: %v", err)
+	}
+
+	// if we have a match then there's an as set to expand; expand and return it
+	if itMatched == true {
+		// re := regexp.MustCompile("\\{|\\}")
+		// expandedPath = string(re.ReplaceAll([]byte(asPath), []byte("")))
+		expandedPath = strings.Replace(asPath, "{", "", -1)
+		expandedPath = strings.Replace(expandedPath, "}", "", -1)
+		expandedPath = strings.Replace(expandedPath, ",", " ", -1)
+		return
+	}
+	return asPath
 }
 
 // Given a string of newline separated bgp records, marshal them into json
@@ -93,16 +163,10 @@ func marshalBGP(asn string, records string) ([]byte, error) {
 		return []byte(nil), err
 	}
 
-	var prefixes []string
-	for _, record := range strings.Split(records, "\n") {
-		values := strings.Split(record, "|")
-		prefixes = append(prefixes, values[prefixIndex])
-	}
-
 	bgp := bgpRecord{
 		AutonomousSystem:      asNumber,
 		AutonomousSystemPaths: systemPaths(records),
-		Prefixes:              uniquePrefixes(prefixes),
+		Prefixes:              uniquePrefixes(records),
 	}
 
 	return json.MarshalIndent(bgp, "  ", "  ")
@@ -127,6 +191,7 @@ func storeBGP(csvReader *csv.Reader, store *BoltDB) (float64, map[string]int) {
 		}
 
 		// track stats and prepare record
+		record[pathIndex] = expandASPath(record[pathIndex])
 		asn := lastString(strings.Split(record[pathIndex], " "))
 		if asn == "" {
 			lumberjack.Warn("No key for record %v", record)
@@ -143,7 +208,7 @@ func storeBGP(csvReader *csv.Reader, store *BoltDB) (float64, map[string]int) {
 
 		// log processing update if necessary
 		if math.Mod(recordsSoFar, updateAfterProcessing) == 0 {
-			provideUpdate(&stopWatch, recordsSoFar)
+			provideUpdate(&stopWatch, updateAfterProcessing, recordsSoFar)
 		}
 	}
 	return recordsSoFar, asns
@@ -158,9 +223,6 @@ func systemPaths(records string) []seenASPath {
 
 		var asns []int
 		for _, as := range strings.Split(values[pathIndex], " ") {
-			as = strings.Replace(as, "{", "", -1)
-			as = strings.Replace(as, "}", "", -1)
-
 			asn, err := strconv.Atoi(as)
 			if err != nil {
 				lumberjack.Warn("Failed to convert AS %v; %v", as, err)
@@ -169,29 +231,40 @@ func systemPaths(records string) []seenASPath {
 			}
 		}
 
-		modTime, err := strconv.Atoi(values[0])
-		if err == nil {
-			paths = append(paths, seenASPath{
-				ModificationTime:     modTime,
-				AutonomousSystemPath: asns,
-			})
+		modTime, err := strconv.Atoi(values[timeIndex])
+		if err != nil {
+			lumberjack.Warn("Failed to convert %v; %v", values[timeIndex], err)
 		}
+		fromASN, err := strconv.Atoi(values[fromASNIndex])
+		if err != nil {
+			lumberjack.Warn("Failed to convert %v; %v", values[fromASNIndex], err)
+		}
+
+		paths = append(paths, seenASPath{
+			ModificationTime:     modTime,
+			FromIP:               string(values[fromIPIndex]),
+			FromASN:              fromASN,
+			Prefix:               string(values[prefixIndex]),
+			AutonomousSystemPath: asns,
+		})
 	}
 
 	return paths
 }
 
 // Given a string of BGP records, return a unique list of prefixes
-func uniquePrefixes(prefixes []string) []string {
+func uniquePrefixes(records string) (uniques []string) {
 	seenPrefixes := make(map[string]bool)
-	var uniques []string
 
-	for _, prefix := range prefixes {
+	for _, record := range strings.Split(records, "\n") {
+		values := strings.Split(record, joinString)
+		prefix := values[prefixIndex]
+
 		if seenPrefixes[prefix] == false {
 			uniques = append(uniques, prefix)
 			seenPrefixes[prefix] = true
 		}
 	}
 
-	return uniques
+	return
 }

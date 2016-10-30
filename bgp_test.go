@@ -1,18 +1,11 @@
 package main
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/pladdy/lumberjack"
 )
-
-type recordTests struct {
-	indexes        []int
-	rawRecord      []string
-	expectedRecord []string
-}
 
 var rawRecord []string = []string{
 	"TABLE_DUMP2",
@@ -31,20 +24,28 @@ var rawRecord []string = []string{
 	"",
 }
 
+// Helper
 func rebuildRecord(pieces []string) string {
-	return strings.Join(pieces, "|")
+	return strings.Join(pieces, joinString)
 }
 
-func TestSystemPaths(t *testing.T) {
-	lumberjack.StartLogging()
+type expandTests struct {
+	input    string
+	expected string
+}
 
-	// create a record with '{' and '}' in them
-	oddRecord := make([]string, len(rawRecord))
-	copy(oddRecord, rawRecord)
-	oddRecord[6] = "1234 5678 {357, 2124}"
+func TestExpandASPath(t *testing.T) {
+	lumberjack.Hush()
 
-	testRecords := rebuildRecord(rawRecord)
-	testRecords = testRecords + "\n" + rebuildRecord(oddRecord)
+	tests := []expandTests{
+		{input: "1234 5678 {357,2124}", expected: "1234 5678 357 2124"},
+		{input: "1234 5678 {357}", expected: "1234 5678 357"},
+	}
 
-	fmt.Println(systemPaths(testRecords))
+	for _, test := range tests {
+		result := expandASPath(test.input)
+		if result != test.expected {
+			t.Error("expected", test.expected, "got", result)
+		}
+	}
 }

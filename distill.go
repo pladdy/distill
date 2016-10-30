@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -13,7 +14,7 @@ import (
 func swapFileExtension(fileName string, extension string) string {
 	re := regexp.MustCompile("\\" + filepath.Ext(fileName) + "$")
 	return string(
-		re.ReplaceAll([]byte(filepath.Base(fileName)), []byte("."+extension)))
+		re.ReplaceAll([]byte(fileName), []byte("."+extension)))
 }
 
 // Given a channel and a number of times to take from it, attempt to take from
@@ -33,9 +34,12 @@ func lastString(strings []string) string {
 
 // Given a pointer to a time.Time, and a count of records, provide a logged
 // update; tells you how long it took to process the records so far
-func provideUpdate(stopWatch *time.Time, records float64) {
-	sinceLastUpdate := time.Since(*stopWatch)
-	lumberjack.Info("Processed %.f records in %v", records, sinceLastUpdate)
+func provideUpdate(stopWatch *time.Time, newRecords float64, totalRecords float64) {
+	lumberjack.Info(
+		"Processed %.f records of %.f in %v",
+		newRecords,
+		totalRecords,
+		time.Since(*stopWatch))
 	*stopWatch = time.Now()
 }
 
@@ -43,8 +47,13 @@ func main() {
 	lumberjack.StartLogging()
 
 	if len(os.Args) == 1 {
-		lumberjack.Fatal("File to distill is required as an argument")
+		usage()
+		lumberjack.Fatal("Missing arguments")
 	}
 
-	distillBGP(os.Args[1])
+	distillBGP(os.Args[1], os.Args[2])
+}
+
+func usage() {
+	fmt.Println("call with <file to distil> <file to distill to>")
 }

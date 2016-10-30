@@ -23,3 +23,25 @@ func TestLastString(t *testing.T) {
 		}
 	}
 }
+
+func TestSwapFileExtension(t *testing.T) {
+	type swapTests struct {
+		input        string
+		newExtension string
+		expected     string
+	}
+
+	var tests = []swapTests{
+		{"some/where/foo_bar.baz", "csv", "some/where/foo_bar.csv"},
+		{"sfoo_bar.baz", "json", "foo_bar.json"},
+	}
+
+	for _, test := range tests {
+		result := swapFileExtension(test.input, test.newExtension)
+		if result != test.expected {
+			t.Error(
+				"Got", result, "Expected", test.expected,
+			)
+		}
+	}
+}
