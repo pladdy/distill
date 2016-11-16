@@ -53,31 +53,6 @@ type bgpRecord struct {
 	Prefixes              []string
 }
 
-// Given a file created with `bgpdump -t`, convert it to aa JSON format grouped
-// by the AS in the record being observed
-func distillBGP(sourceFile string, destinationFile string) {
-	var store BoltDB
-	store.Create(swapFileExtension(destinationFile, "db"))
-	store.SetBucket(defaultBucketName)
-	defer store.Destroy()
-
-	csvDumpFile := bgpDumpToCSV(sourceFile)
-	fileHandle, err := os.Open(csvDumpFile)
-	if err != nil {
-		lumberjack.Fatal("Failed to open file to read")
-	}
-	defer fileHandle.Close()
-
-	csvReader := csv.NewReader(fileHandle)
-	csvReader.Comma = '|'
-
-	start := time.Now()
-	records, asMap := storeBGP(csvReader, &store)
-	lumberjack.Info("Processed %.f total records in %v", records, time.Since(start))
-
-	dumpBGPStore(&store, asMap, destinationFile)
-}
-
 // Given a bgpdump file, convert it to csv
 func bgpDumpToCSV(sourceFile string) string {
 	csvDumpFile := filepath.Base(swapFileExtension(sourceFile, "csv"))
@@ -103,6 +78,31 @@ func bgpDumpToCSV(sourceFile string) string {
 			out.String())
 	}
 	return csvDumpFile
+}
+
+// Given a file created with `bgpdump -t`, convert it to aa JSON format grouped
+// by the AS in the record being observed
+func distillBGP(sourceFile string, destinationFile string) {
+	var store BoltDB
+	store.Create(swapFileExtension(destinationFile, "db"))
+	store.SetBucket(defaultBucketName)
+	defer store.Destroy()
+
+	csvDumpFile := bgpDumpToCSV(sourceFile)
+	fileHandle, err := os.Open(csvDumpFile)
+	if err != nil {
+		lumberjack.Fatal("Failed to open file to read")
+	}
+	defer fileHandle.Close()
+
+	csvReader := csv.NewReader(fileHandle)
+	csvReader.Comma = '|'
+
+	start := time.Now()
+	records, asMap := storeBGP(csvReader, &store)
+	lumberjack.Info("Processed %.f total records in %v", records, time.Since(start))
+
+	dumpBGPStore(&store, asMap, destinationFile)
 }
 
 // Dump the stored bgp data to a json file

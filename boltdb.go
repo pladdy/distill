@@ -60,7 +60,6 @@ func (store *BoltDB) BatchAppend(key string, value string, c chan error) {
 
 // Start the KV Store and by creating the db
 func (store *BoltDB) Create(dbPath string) {
-	lumberjack.StartLogging()
 	lumberjack.Info("Creating db named " + dbPath)
 
 	store.DbPath = dbPath
@@ -118,10 +117,10 @@ func (store *BoltDB) Take(key string) (value []byte) {
 		return nil
 	})
 
-	return value
+	return
 }
 
 // Take data from a key in the BoltDB's bucket as a string
-func (store *BoltDB) TakeString(key string) (value string) {
+func (store *BoltDB) TakeString(key string) string {
 	return string(store.Take(key))
 }

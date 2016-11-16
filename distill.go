@@ -10,13 +10,6 @@ import (
 	"github.com/pladdy/lumberjack"
 )
 
-// Given a file name, use the name to return a .db file name
-func swapFileExtension(fileName string, extension string) string {
-	re := regexp.MustCompile("\\" + filepath.Ext(fileName) + "$")
-	return string(
-		re.ReplaceAll([]byte(fileName), []byte("."+extension)))
-}
-
 // Given a channel and a number of times to take from it, attempt to take from
 // it that many times
 func drainChannel(c chan error, times int) {
@@ -43,6 +36,17 @@ func provideUpdate(stopWatch *time.Time, newRecords float64, totalRecords float6
 	*stopWatch = time.Now()
 }
 
+// Given a file name, use the name to return a .db file name
+func swapFileExtension(fileName string, extension string) string {
+	re := regexp.MustCompile("\\" + filepath.Ext(fileName) + "$")
+	return string(
+		re.ReplaceAll([]byte(fileName), []byte("."+extension)))
+}
+
+func usage() {
+	fmt.Println("call with <file to distil> <file to distill to>")
+}
+
 func main() {
 	lumberjack.StartLogging()
 
@@ -52,8 +56,4 @@ func main() {
 	}
 
 	distillBGP(os.Args[1], os.Args[2])
-}
-
-func usage() {
-	fmt.Println("call with <file to distil> <file to distill to>")
 }

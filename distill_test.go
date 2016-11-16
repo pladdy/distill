@@ -1,13 +1,35 @@
 package main
 
-import "testing"
+import (
+	"testing"
 
-type stringTests struct {
-	input    []string
-	expected string
+	"github.com/pladdy/lumberjack"
+)
+
+func TestDrainChannel(t *testing.T) {
+	lumberjack.Hush()
+
+	// load up a channel
+	c := make(chan error, 11)
+	for i := 0; i < 11; i++ {
+		c <- nil
+	}
+
+	// drain most of it
+	drainChannel(c, 10)
+	lastValue := <-c
+
+	if lastValue != nil {
+		t.Error("Expected:", nil, "Got:", lastValue)
+	}
 }
 
 func TestLastString(t *testing.T) {
+	type stringTests struct {
+		input    []string
+		expected string
+	}
+
 	var tests = []stringTests{
 		{[]string{"one", "two", "three"}, "three"},
 		{[]string{"this", "is", "last"}, "last"},
@@ -33,7 +55,7 @@ func TestSwapFileExtension(t *testing.T) {
 
 	var tests = []swapTests{
 		{"some/where/foo_bar.baz", "csv", "some/where/foo_bar.csv"},
-		{"sfoo_bar.baz", "json", "foo_bar.json"},
+		{"foo_bar.baz", "json", "foo_bar.json"},
 	}
 
 	for _, test := range tests {
