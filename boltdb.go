@@ -1,6 +1,6 @@
-// BoltDB struct to act as a layer between boltDB and any code using this k/v
-// store.  Idea of having this is if boltDB is no longer the deisred k/v store
-// this layer can be swapped out as long as the API is preserved.
+// The BoltDB struct is a layer between boltDB and any code using this k/v
+// store.  It provides helper functions and a handy interface to simplify
+// using the k/v store in other areas of this code base.
 package main
 
 import (
@@ -20,7 +20,8 @@ type BoltDB struct {
 }
 
 // Similar to Give, but Append will do a take on a key first and if not nil
-// append it's value to the key instead of replacing
+// append it's value to the key instead of replacing it.  It appends the new
+// value with a newline as it's prefix/delimter
 func (store *BoltDB) Append(key string, value string) {
 	store.Db.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(store.Bucket))
