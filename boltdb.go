@@ -39,7 +39,7 @@ func (store *BoltDB) Append(key string, value string) {
 	})
 }
 
-// BoltDb batch is only useful with goroutines calling it.  This takes they
+// BoltDb batch is only useful with goroutines calling it.  This takes the
 // key and value to append along with a channel.  It sends it's result to the
 // channel to get handled elsewhere
 func (store *BoltDB) BatchAppend(key string, value string, c chan error) {

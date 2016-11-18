@@ -29,15 +29,13 @@ func rebuildRecord(pieces []string) string {
 	return strings.Join(pieces, joinString)
 }
 
-type expandTests struct {
-	input    string
-	expected string
-}
-
 func TestExpandASPath(t *testing.T) {
 	lumberjack.Hush()
 
-	tests := []expandTests{
+	var tests = []struct {
+		input    string
+		expected string
+	}{
 		{input: "1234 5678 {357,2124}", expected: "1234 5678 357 2124"},
 		{input: "1234 5678 {357}", expected: "1234 5678 357"},
 	}
@@ -45,7 +43,55 @@ func TestExpandASPath(t *testing.T) {
 	for _, test := range tests {
 		result := expandASPath(test.input)
 		if result != test.expected {
-			t.Error("expected", test.expected, "got", result)
+			t.Error("Expected:", test.expected, "Got:", result)
 		}
+	}
+}
+
+func TestMarshallBGP(t *testing.T) {
+	asn := lastString(strings.Split(rawRecord[pathIndex], " "))
+
+	// generate result
+	result, err := marshalBGP(asn, strings.Join(rawRecord, "|"))
+	if err != nil {
+		t.Error("Failed to create a JSON record")
+	}
+	resultToString := string(result)
+
+	expected := `{
+    "AutonomousSystem": 6830,
+    "AutonomousSystemPaths": [
+      {
+        "ModificationTime": 1474983369,
+        "FromIP": "212.25.27.44",
+        "FromASN": 8758,
+        "Prefix": "0.0.0.0/0",
+        "AutonomousSystemPath": [
+          8758,
+          6830
+        ]
+      }
+    ],
+    "Prefixes": [
+      "0.0.0.0/0"
+    ]
+  }`
+
+	if resultToString != expected {
+		t.Error("Got:", resultToString, "Expected:", expected)
+	}
+}
+
+func TestUniquePrefixes(t *testing.T) {
+	testRecords := strings.Join(rawRecord, "|")
+	testRecords += "\n" + strings.Join(rawRecord, "|")
+
+	uniqueCIDRs := uniquePrefixes(testRecords)
+	if len(uniqueCIDRs) > 1 {
+		t.Error("Expected length to be 1")
+	}
+
+	if uniqueCIDRs[0] != rawRecord[prefixIndex] {
+		t.Error("Expected:", rawRecord[prefixIndex], "Got:", uniqueCIDRs[0])
 	}
 }

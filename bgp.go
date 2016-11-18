@@ -136,8 +136,8 @@ func dumpBGPStore(store *BoltDB, asMap map[string]int, fileName string) {
 	file.Write([]byte("\n]"))
 }
 
-// Given a record from a bgpdump, expand the as path if there's an as set
-// and return the record; this change is "in place"
+// Given a record from a bgpdump, expand the AS path if there's an AS set
+// and return the record
 func expandASPath(asPath string) (expandedPath string) {
 	itMatched, err := regexp.MatchString("{", asPath)
 	if err != nil {
@@ -146,8 +146,6 @@ func expandASPath(asPath string) (expandedPath string) {
 
 	// if we have a match then there's an as set to expand; expand and return it
 	if itMatched == true {
-		// re := regexp.MustCompile("\\{|\\}")
-		// expandedPath = string(re.ReplaceAll([]byte(asPath), []byte("")))
 		expandedPath = strings.Replace(asPath, "{", "", -1)
 		expandedPath = strings.Replace(expandedPath, "}", "", -1)
 		expandedPath = strings.Replace(expandedPath, ",", " ", -1)
