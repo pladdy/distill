@@ -59,7 +59,7 @@ func (store *BoltDB) BatchAppend(key string, value string, c chan error) {
 	})
 }
 
-// Start the KV Store and by creating the db
+// Create a db file and open a connection
 func (store *BoltDB) Create(dbPath string) {
 	lumberjack.Info("Creating db named " + dbPath)
 

@@ -82,6 +82,40 @@ func TestMarshallBGP(t *testing.T) {
 	}
 }
 
+func TestSystemPaths(t *testing.T) {
+	var tests = []struct {
+		records  string
+		expected []seenASPath
+	}{
+		{rebuildRecord(rawRecord),
+			[]seenASPath{seenASPath{1474983369, "212.25.27.44", 8758, "0.0.0.0/0", []int{8758, 6830}}}},
+	}
+
+	for _, test := range tests {
+		results := systemPaths(test.records)
+		for i, result := range results {
+			expected := test.expected[i]
+			if result.ModificationTime != expected.ModificationTime {
+				t.Error("Got:", result.ModificationTime, "Expected:", expected.ModificationTime)
+			}
+			if result.FromIP != expected.FromIP {
+				t.Error("Got:", result.FromIP, "Expected:", expected.FromIP)
+			}
+			if result.FromASN != expected.FromASN {
+				t.Error("Got:", result.FromASN, "Expected:", expected.FromASN)
+			}
+			if result.Prefix != expected.Prefix {
+				t.Error("Got:", result.Prefix, "Expected:", expected.Prefix)
+			}
+			for i, asn := range result.AutonomousSystemPath {
+				if asn != expected.AutonomousSystemPath[i] {
+					t.Error("Got:", asn, "Expected:", expected.AutonomousSystemPath[i])
+				}
+			}
+		}
+	}
+}
+
 func TestUniquePrefixes(t *testing.T) {
 	testRecords := strings.Join(rawRecord, "|")
 	testRecords += "\n" + strings.Join(rawRecord, "|")

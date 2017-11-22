@@ -39,18 +39,18 @@ const (
 	pathIndex    = 6
 )
 
+type bgpRecord struct {
+	AutonomousSystem      int
+	AutonomousSystemPaths []seenASPath
+	Prefixes              []string
+}
+
 type seenASPath struct {
 	ModificationTime     int
 	FromIP               string
 	FromASN              int
 	Prefix               string
 	AutonomousSystemPath []int
-}
-
-type bgpRecord struct {
-	AutonomousSystem      int
-	AutonomousSystemPaths []seenASPath
-	Prefixes              []string
 }
 
 // Given a bgpdump file, convert it to csv
@@ -103,6 +103,7 @@ func distillBGP(sourceFile string, destinationFile string) {
 	lumberjack.Info("Processed %.f total records in %v", records, time.Since(start))
 
 	dumpBGPStore(&store, asMap, destinationFile)
+  os.Remove(csvDumpFile)
 }
 
 // Dump the stored bgp data to a json file
@@ -258,7 +259,7 @@ func uniquePrefixes(records string) (uniques []string) {
 		values := strings.Split(record, joinString)
 		prefix := values[prefixIndex]
 
-		if seenPrefixes[prefix] == false {
+		if seenPrefixes[prefix] != true {
 			uniques = append(uniques, prefix)
 			seenPrefixes[prefix] = true
 		}
