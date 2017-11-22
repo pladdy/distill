@@ -9,5 +9,5 @@ and I'm using it to learn some golang.
 ```sh
 make build
 ./distill testdata/bview.20161001.0000.gz output.json
-# when done: `less output.jon` to see it
+less output.json
 ```
